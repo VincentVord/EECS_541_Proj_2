@@ -1,11 +1,15 @@
 #include <Arduino.h>
+#include <stdio.h>
+#include <stdlib.h> 
+#include <time.h>   
 
 const int BAUD_RATE = 2200;
 const int txPin = 13;
-const unsigned long delayMs = 1000/BAUD_RATE;
+const unsigned long delayUs = 1000000/BAUD_RATE;
 
 // put function declarations here:
 void transmitData(byte);
+int introduceError(int);
 
 void setup() {
   // start serial connection
@@ -13,6 +17,8 @@ void setup() {
   
   pinMode(txPin, OUTPUT); //set the tx pin 
   digitalWrite(txPin, HIGH); //set the tx pin default
+
+  randomSeed(analogRead(A0)); //seed the random generator
 }
 
 void loop() {
@@ -42,27 +48,37 @@ void loop() {
 
 // use even parity bit
 
+int introduceError(int bit) { // has a 50% chance to invert the bit
+  if (random(2) == 1) {
+    return !bit;
+  }
+  return bit;
+}
+
 void transmitData(byte data) { //transmits one 11-bit packet
   // start bit
   digitalWrite(txPin, LOW);
-  delay(delayMs);
+  delayMicroseconds(delayUs);
 
   int oneBitTotal = 0;
 
   for (int i = 0; i < 8; i++) {
     int bit = (data >> i) & 0x01;
-    digitalWrite(txPin, bit);
+
+    if (bit==1) { //count bits for parity
+      oneBitTotal +=1;
+    }
+
+    int finalBit = introduceError(bit);
+    digitalWrite(txPin, finalBit);
 
     Serial.print("Transmitted bit ");
     Serial.print(i);
     Serial.print(": ");
-    Serial.println(bit);
+    Serial.println(finalBit);
 
-    if (bit==1) {
-      oneBitTotal +=1;
-    }
 
-    delay(delayMs);
+    delayMicroseconds(delayUs);
   }
 
   // even parity bit
@@ -71,9 +87,9 @@ void transmitData(byte data) { //transmits one 11-bit packet
   } else { //even number of 1s
     digitalWrite(txPin, LOW); //make the parity bit 0
   }
-  delay(delayMs);
+  delayMicroseconds(delayUs);
 
   // stop bit
   digitalWrite(txPin, HIGH);
-  delay(delayMs);
+  delayMicroseconds(delayUs);
 }
