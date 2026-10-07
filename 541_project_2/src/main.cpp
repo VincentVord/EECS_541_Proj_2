@@ -1,38 +1,28 @@
 #include <Arduino.h>
 
-const int BAUD_RATE = 1;
+const int BAUD_RATE = 2200;
 const int txPin = 13;
-const unsigned long delayUs = 1000000/BAUD_RATE;
+const unsigned long delayMs = 1000/BAUD_RATE;
 
 // put function declarations here:
 void transmitData(byte);
 
 void setup() {
-  // put your setup code here, to run once:
+  // start serial connection
   Serial.begin(9600);
-  pinMode(txPin, OUTPUT);
-  digitalWrite(txPin, HIGH);
+  
+  pinMode(txPin, OUTPUT); //set the tx pin 
+  digitalWrite(txPin, HIGH); //set the tx pin default
 }
 
 void loop() {
-  // byte dataBuf[10];
-  // if (Serial.available() > 0) {
-  //   size_t bytesRead = Serial.readBytes(dataBuf, 10);
 
-  //   Serial.print("Successfully read ");
-  //   Serial.print(bytesRead);
-  //   Serial.println(" bytes.");
+  char message[12] = "Hello World";
 
-  //   for (size_t i = 0; i < bytesRead; i++) {
-  //     transmitData(dataBuf[i]);
-  //   }
-  // }
+  for (int i = 0; i<12; i++) {
+    byte data = message[i];
 
-  if (Serial.available() > 0) {
-
-    byte data = Serial.read();
-
-    Serial.print("Received: ");
+    Serial.print("Sending: ");
     Serial.println((char)data);
 
     transmitData(data);
@@ -40,8 +30,25 @@ void loop() {
   }
 }
 
-// put function definitions here:
-void transmitData(byte data) {
+// DATA FORMAT //
+// |------------------------|
+// |1|       8          |1|1|
+// |^        ^           ^ ^|
+// ||        |       ____| ||
+// ||        |      |      ||
+// |start  data  parity stop|
+// |bit    bits    bit   bit|
+// |------------------------|
+
+// use even parity bit
+
+void transmitData(byte data) { //transmits one 11-bit packet
+  // start bit
+  digitalWrite(txPin, LOW);
+  delay(delayMs);
+
+  int oneBitTotal = 0;
+
   for (int i = 0; i < 8; i++) {
     int bit = (data >> i) & 0x01;
     digitalWrite(txPin, bit);
@@ -51,6 +58,22 @@ void transmitData(byte data) {
     Serial.print(": ");
     Serial.println(bit);
 
-    delayMicroseconds(delayUs);
+    if (bit==1) {
+      oneBitTotal +=1;
+    }
+
+    delay(delayMs);
   }
+
+  // even parity bit
+  if (oneBitTotal%2==1) { //odd number of 1s
+    digitalWrite(txPin, HIGH); //make the parity bit 1
+  } else { //even number of 1s
+    digitalWrite(txPin, LOW); //make the parity bit 0
+  }
+  delay(delayMs);
+
+  // stop bit
+  digitalWrite(txPin, HIGH);
+  delay(delayMs);
 }
