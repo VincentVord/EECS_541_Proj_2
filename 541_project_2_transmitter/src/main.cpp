@@ -33,6 +33,7 @@ void loop() {
 
     transmitData(data);
     digitalWrite(txPin, HIGH);
+    delay(10); //keep data idle (HIGH) for 10ms
   }
 }
 
