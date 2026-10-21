@@ -21,11 +21,17 @@ void setup() {
   randomSeed(analogRead(A0)); //seed the random generator
 }
 
+// void loop() {
+//     transmitData('H');
+//     digitalWrite(txPin, HIGH);
+//     delay(100);
+// }
+
 void loop() {
 
-  char message[12] = "Hello World";
+  char message[2] = "H";
 
-  for (int i = 0; i<12; i++) {
+  for (int i = 0; i<strlen(message); i++) {
     byte data = message[i];
 
     Serial.print("Sending: ");
@@ -33,7 +39,7 @@ void loop() {
 
     transmitData(data);
     digitalWrite(txPin, HIGH);
-    delay(10); //keep data idle (HIGH) for 10ms
+    delay(100); //keep data idle (HIGH) for 100ms
   }
 }
 
@@ -49,48 +55,61 @@ void loop() {
 
 // use even parity bit
 
-int introduceError(int bit) { // has a 50% chance to invert the bit
-  if (random(2) == 1) {
+int introduceError(int bit) { // has a 5% chance to invert the bit
+  if (random(20) == 1) {
     return !bit;
   }
   return bit;
 }
 
-void transmitData(byte data) { //transmits one 11-bit packet
-  // start bit
-  digitalWrite(txPin, LOW);
-  delayMicroseconds(delayUs);
+void transmitData(byte data) {
 
+  byte finalData = 0;
+
+  // Generate corrupted byte BEFORE transmission starts
+  for (int i = 0; i < 8; i++) {
+
+    int bit = (data >> i) & 0x01;
+
+    int finalBit = introduceError(bit);
+
+    if (finalBit == 1) {
+      finalData |= (1 << i);
+    }
+  }
+
+  // Calculate parity from ORIGINAL data
   int oneBitTotal = 0;
 
   for (int i = 0; i < 8; i++) {
-    int bit = (data >> i) & 0x01;
-
-    if (bit==1) { //count bits for parity
-      oneBitTotal +=1;
+    if ((data >> i) & 0x01) {
+      oneBitTotal++;
     }
+  }
 
-    int finalBit = introduceError(bit);
-    digitalWrite(txPin, finalBit);
+  // Start bit
+  digitalWrite(txPin, LOW);
+  delayMicroseconds(delayUs);
 
-    Serial.print("Transmitted bit ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(finalBit);
+  // Data bits
+  for (int i = 0; i < 8; i++) {
 
+    int bit = (finalData >> i) & 0x01;
 
+    digitalWrite(txPin, bit);
     delayMicroseconds(delayUs);
   }
 
-  // even parity bit
-  if (oneBitTotal%2==1) { //odd number of 1s
-    digitalWrite(txPin, HIGH); //make the parity bit 1
-  } else { //even number of 1s
-    digitalWrite(txPin, LOW); //make the parity bit 0
+  // Even parity bit
+  if (oneBitTotal % 2 == 1) {
+    digitalWrite(txPin, HIGH);
+  } else {
+    digitalWrite(txPin, LOW);
   }
+
   delayMicroseconds(delayUs);
 
-  // stop bit
+  // Stop bit
   digitalWrite(txPin, HIGH);
   delayMicroseconds(delayUs);
 }

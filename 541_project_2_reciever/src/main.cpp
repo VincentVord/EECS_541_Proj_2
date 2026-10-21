@@ -4,6 +4,11 @@ const int BAUD_RATE = 2200;
 const int rxPin = 2;
 const unsigned long bitTimeUs = 1000000/BAUD_RATE;
 
+unsigned long totalBits = 0;
+unsigned long errorBits = 0;
+unsigned long totalBytes = 0;
+unsigned long errorBytes = 0;
+
 // put function declarations here:
 byte receiveData(bool &parityError, bool &framingError);
 
@@ -12,7 +17,8 @@ void setup() {
   pinMode(rxPin, INPUT);
 }
 
-char expected_message[12] = "Hello World";
+// expecting "H"
+char expected_message[2] = "H";
 int i = 0;
 
 void loop() {
@@ -20,34 +26,55 @@ void loop() {
   bool parityError = false;
   bool framingError = false;
 
-  byte recieved = receiveData(parityError, framingError);
+  byte received = receiveData(parityError, framingError);
 
   Serial.print("Recieved: ");
-  Serial.println((char)recieved);
+  Serial.println((char)received);
 
-  if (recieved != expected_message[i]) {
-    Serial.println("Data error!");
+  byte expected = expected_message[i];
+
+  totalBytes++;
+  totalBits += 8;
+
+  byte difference = received ^ expected;
+
+  int bitErrors = 0;
+
+  for (int bit = 0; bit < 8; bit++) {
+    if ((difference >> bit) & 0x01) {
+      bitErrors++;
+    }
+  }
+
+  errorBits += bitErrors;
+
+  if (received != expected) {
+    errorBytes++;
   }
 
   i++;
 
-  if (i>= strlen(expected_message)) { //loop index back to 0 after reaching the end
+  if (i >= strlen(expected_message)) {
     i = 0;
   }
 
-  if (parityError) {
-    Serial.println("Parity error!");
-  }
+  if (totalBytes % 100 == 0) {
 
-  if (framingError) {
-    Serial.println("Framing error!");
+    float bitErrorRate =
+        100.0 * errorBits / totalBits;
+
+    float byteErrorRate =
+        100.0 * errorBytes / totalBytes;
+
+    Serial.print("BER: ");
+    Serial.print(bitErrorRate);
+    Serial.println("%");
+
+    Serial.print("Byte error rate: ");
+    Serial.print(byteErrorRate);
+    Serial.println("%");
   }
 }
-
-// void loop() {
-//     Serial.println(digitalRead(rxPin));
-//     delay(100);
-// }
 
 byte receiveData (bool &parityError, bool &framingError) {
 
@@ -66,7 +93,7 @@ byte receiveData (bool &parityError, bool &framingError) {
 
   if (digitalRead(rxPin) != LOW) { //make sure we are still in the LOW start bit
     framingError = true;
-    return 0;
+    // return 0;
   }
 
   delayMicroseconds(bitTimeUs); //move to the center of the first data bit
