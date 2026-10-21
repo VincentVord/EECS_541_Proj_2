@@ -21,12 +21,6 @@ void setup() {
   randomSeed(analogRead(A0)); //seed the random generator
 }
 
-// void loop() {
-//     transmitData('H');
-//     digitalWrite(txPin, HIGH);
-//     delay(100);
-// }
-
 void loop() {
 
   char message[2] = "H";
